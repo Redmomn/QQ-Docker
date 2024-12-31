@@ -20,6 +20,10 @@ jobs:
   build-docker-image:
     runs-on: ubuntu-latest
 
+    permissions:
+      packages: write
+      contents: read
+
     strategy:
           matrix:
             type: [simple, minimal]

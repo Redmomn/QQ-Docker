@@ -2,6 +2,7 @@ name: build-docker-base.yml
 
 on:
   workflow_dispatch:
+    inputs:
       latestVersion:
         required: true
         default: false
@@ -10,6 +11,10 @@ on:
 jobs:
   build-docker-image:
     runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      contents: read
 
     steps:
       - name: Checkout
