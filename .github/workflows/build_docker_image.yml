@@ -1,0 +1,76 @@
+name: build-docker-image.yml
+
+on:
+  workflow_dispatch:
+    inputs:
+      downloadUrl_amd64:
+        description: download url for amd64
+        required: true
+        type: string
+      downloadUrl_arm64:
+        description: download url for arm64
+        required: true
+        type: string
+      latestVersion:
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  build-docker-image:
+    runs-on: ubuntu-latest
+
+    strategy:
+          matrix:
+            type: [simple, minimal]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        run: |
+          curl -o linuxqq.deb ${{ inputs.downloadUrl_amd64 }}
+          VERSION=$(bash ./get_version.sh linuxqq.deb)
+          rm -f linuxqq.deb
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Extract Docker image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ github.repository }}
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ matrix.type }}-${{ env.VERSION }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.type }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            QQ_DOWNLOAD_URL_AMD64=${{ inputs.downloadUrl_amd64 }}
+            QQ_DOWNLOAD_URL_ARM64=${{ inputs.downloadUrl_arm64 }}
